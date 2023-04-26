@@ -1,5 +1,5 @@
 import {createSlice, PayloadAction} from "@reduxjs/toolkit";
-import {AppName} from "@/constants";
+import {Config} from "@/config";
 
 interface PageTitleState {
     title: string;
@@ -14,7 +14,7 @@ const pageTitleSlice = createSlice({
     name: 'pageTitle',
     reducers: {
         setTitle: (currentState, action: PayloadAction<string>) => {
-            currentState.title = `${AppName} - ${action.payload}`; //Example: "Spider's Web - About us"
+            currentState.title = (action.payload) ? `${Config.AppName} - ${action.payload}` : Config.AppName;
             if (typeof document !== "undefined") {
                 document.title = currentState.title;
             }

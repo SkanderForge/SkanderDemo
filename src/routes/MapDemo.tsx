@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {memo, useCallback, useEffect, useRef} from "react";
 import * as d3 from "d3";
 import * as topojson from "topojson-client";
 import {GeoJSON, GeoJsonProperties, Geometry} from "geojson";
@@ -6,15 +6,7 @@ import {fetchJson} from "@/utils/fetchJson";
 import {Map} from "@/utils/map/map";
 import {useAppDispatch} from "@/utils/store/customHooks";
 import {hideLoader, setStatus, showLoader} from "@/utils/store/loaderSlice";
-import {Box} from "@chakra-ui/react";
-
-interface D3SVGElement extends SVGElement {
-    __data__: {
-        coordinates?: any
-    }
-    d?: SVGPathElement | string
-}
-
+import {Box, Stack, Switch, useColorModeValue} from "@chakra-ui/react";
 
 const MapDemo: React.FC = () => {
 
@@ -23,12 +15,15 @@ const MapDemo: React.FC = () => {
 
 
     const svgRef = useRef<SVGSVGElement>(null);
-    let test = useRef("Downloading...");
+    const mapProcessorRef = useRef<Map>();
     let saveId = "1d6ea5"//= "04b3db"; //= "8a33cd";
+    function toggleDisplayBackground(e: any) {
+        mapProcessorRef.current?.toggleDisplayBackground();
+    }
+
+
     const loadAndRender = useCallback(async () => {
         dispatch(showLoader("#skanderMap"));
-        let statusHolder = document.getElementById("loader_text") as HTMLElement;
-        console.log(statusHolder);
 
         dispatch(setStatus("Loading provinces color data..."));
         const provincesColors: {
@@ -47,12 +42,13 @@ const MapDemo: React.FC = () => {
         });
         const svg = d3.select(svgRef.current);
         const M = new Map(svgRef);
+        mapProcessorRef.current = M;
         M.initializeSvg(provincesShapes);
         const features = provincesShapes.features;
         svg.select("g").append("g").attr("id", "province-labels");
         dispatch(setStatus("Rendering provinces..."));
 
-        svg.select("#province_shapes").selectAll("path")
+        svg.select("#main_map").selectAll("path")
             .data(features)
             .enter().append("path")
             .attr("class", "state")
@@ -94,7 +90,7 @@ const MapDemo: React.FC = () => {
         for (const tagName of tagNames) {
             if (!saveData[tagName]['hex']) continue;
             if (typeof saveData[tagName]['total_development'] == "undefined") continue;
-            svg.select("#province_shapes").append("path")
+            svg.select("#main_map").append("path")
                 .attr("id", tagName)
                 // @ts-ignore
                 .datum(topojson.merge(M.topoJson, M.topoJson.objects.provincesShapes.geometries.filter(function (d: any): boolean {
@@ -168,13 +164,37 @@ const MapDemo: React.FC = () => {
         loadAndRender();
     });
 
+
+    const uiStyle = {
+        padding: "15px",
+        borderRadius: "0px 0px 25px 0px",
+    }
+    console.log(uiStyle);
+
+    //We don't want the map to be re-rendered when switching the theme.
+    const SkanderMap = memo(() => {
+        return (
+            <>
+                <Box id={"skanderMap"} style={{position: "relative"}}>
+                    <svg style={{marginTop: "0%"}} ref={svgRef}>
+                        <g id={"main_map"}></g>
+                    </svg>
+                    <Box id={"uiTopLeft"} backgroundColor={useColorModeValue("light.800", "dark.800")}
+                         style={{position: "absolute", top: "0%", left: "0%", ...uiStyle}}>
+                        <Stack direction={"row"}>
+                            <Box>Toggle background</Box>
+                            <Switch defaultChecked={true} onChange={toggleDisplayBackground}/>
+                        </Stack>
+                    </Box>
+                </Box>
+            </>
+        )
+    });
     return (
-        <>
-            <Box id={"skanderMap"} style={{position: "relative"}}>
-                <svg style={{marginTop: "0%"}} ref={svgRef}>
-                </svg>
-            </Box>
-        </>
-    );
+        <SkanderMap/>
+    )
+
+
+        ;
 };
 export default MapDemo;

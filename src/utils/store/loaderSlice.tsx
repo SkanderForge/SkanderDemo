@@ -5,13 +5,13 @@ import Loader from "@/components/Loader";
 interface LoaderState {
     visible: boolean;
     iconHtml: string;
+    currentElement?: HTMLElement,
 }
 
 const initialState: LoaderState = {
     visible: false,
     iconHtml: "",
 };
-
 const loaderSlice = createSlice({
     initialState,
     name: "loaderSlice",
@@ -23,17 +23,19 @@ const loaderSlice = createSlice({
             child.id = "loader";
             child.innerHTML = iconHtml;
             element?.appendChild(child);
-            // @ts-ignore
             document.documentElement.style.overflow = "hide";
         },
         hideLoader: (currentState) => {
-            document.getElementById("loader")?.remove();
-            // @ts-ignore
-            //document.documentElement.style.overflow="auto";
+            let element = document.getElementById("loader");
+            if (!element) throw new Error("Called hide loader before showing?");
+            element.style.transition = 'opacity 1s';
+            element.style.opacity = '0';
+            setTimeout(() => {
+                element?.remove();
+            }, 1000)
         },
         setStatus: (currentState, action: PayloadAction<string>) => {
             let statusHolder = document.getElementById("loader_text") as HTMLElement;
-            console.log(statusHolder);
             statusHolder.innerText = action.payload;
         }
     },

@@ -11,7 +11,7 @@ interface NavbarProps {
 
 const NavBar: React.FC<NavbarProps> = () => {
     const {colorMode} = useColorMode()
-    const bgColor = {light: "white", dark: "dark.primary"}
+    const bgColor = {light: "light.primary", dark: "dark.primary"}
 
     return (
         <>
