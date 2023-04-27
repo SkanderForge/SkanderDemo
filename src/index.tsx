@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import reportWebVitals from './reportWebVitals';
-import {RouterProvider,} from "react-router-dom";
+import {RouterProvider} from "react-router-dom";
 import {Provider} from "react-redux";
 import {store} from "@/utils/store/store";
 import {ChakraProvider, extendTheme, ThemeConfig} from "@chakra-ui/react";

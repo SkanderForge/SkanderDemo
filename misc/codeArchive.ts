@@ -75,3 +75,14 @@ function getCurvedLabelPath(path: any, width: any, height: any) {
 */
     return maxCurve;
 }
+
+
+svg.select("#province_shapes")
+    .append("text")
+    .attr("dominant-baseline", "middle")
+    .append("textPath")
+    .attr("startOffset", "50%")
+    .attr("text-anchor", "middle")
+    .attr("id", `${tagName}_label_textPath`)
+    .text(languageData[tagName]);
+svg.select(`#${tagName}_label_textPath`).attr("xlink:href", `#SHAPE_${tagName}`);

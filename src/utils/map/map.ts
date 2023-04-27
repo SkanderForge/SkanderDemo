@@ -5,45 +5,14 @@ import * as topojson_spec from "topojson-specification";
 import * as topojson_server from "topojson-server";
 import {GeoJSON} from "geojson";
 import * as topojson from "topojson-client";
-
+import {MapLayer} from "@/utils/map/mapLayer";
+import mapmodes, {cleanLayer} from "@/utils/map/mapmodes";
+import {TMapmode} from "@/utils/types/map";
+import {Topology} from "topojson-specification";
+import {MapLayerBank} from "@/utils/map/mapLayerBank";
 
 export class Map {
-    zoomHandler = d3.zoom().scaleExtent([-50, 50]).on("zoom", r => {
-        const mins = {
-            lX: 0,
-            lY: 0,
-            rX: -this.mapWidth - (this.svgRef.current?.clientWidth ?? 0),
-            rY: this.mapHeight + (this.svgRef.current?.clientHeight ?? 0)
-        }
-        //We have to update the internal _zoom coordinates, so that when panning back in the right direction
-        //there's no time needed to "make up" the erroneous panning from earlier out of bounds.
-        // if(r.transform.x > mins.lX){this.svg.node().__zoom.x=mins.lX;return;}
-        // if(r.transform.y > mins.lY){this.svg.node().__zoom.y=mins.lY;return;}
-        //   if(r.transform.x < mins.rX){this.svg.node().__zoom.x=mins.rX;return;}
-        //  if(r.transform.y < mins.rY){this.svg.node().__zoom.y=mins.rY;return;}
-        this.svg.select("#main_map").attr("transform", r.transform);
-        this.svg.select("#map_background").style("opacity", (a: any) => {
-            if (r.transform.k > 1) {
-                //return 1/r.transform.k;
-            }
-            return 1;
-        })
 
-
-        let multiplier = 1;
-        if (r.transform.k > this.lastK) {
-            multiplier = (r.transform.k / this.lastK) / 1.5;
-        } else if (r.transform.k < this.lastK) {
-            multiplier = (r.transform.k / this.lastK) * 1.5;
-        }
-        if (multiplier === 1) return;
-        this.lastK = r.transform.k;
-        for (let item of Array.from(document.getElementsByTagName("path"))) {
-            this.lastK = r.transform.k;
-            let currWidth = parseFloat(item.style.strokeWidth.split("px")[0]);
-            item.style.strokeWidth = `${currWidth * multiplier}px`;
-        }
-    })
 
     public geoJson?: GeoJSON.FeatureCollection;
     public topoJson?: topojson_spec.Topology;
@@ -56,19 +25,46 @@ export class Map {
     private initialX: number = 0;
     private initialY: number = 0;
     private lastK: number = 1;
+    private layerBank: MapLayerBank;
+    private shapes?: GeoJSON.FeatureCollection;
+    public dataBanks?: { [key: string]: {} } = {"saveData": []};
+    public currentMapmode: string = "";
+    public Settings = {
+        bgVisible: true,
+        cBordersVisible: true,
+        preferHeatmaps:true,
+    }
+
+    private styleOverrides: CSSStyleDeclaration[] = [];
+
 
     constructor(svgRef: React.RefObject<SVGElement>) {
         console.log("Initializing the Map processor class...");
         this.svgRef = svgRef;
         this.svg = d3.select(svgRef.current);
         this.svg.call(this.zoomHandler);
+        this.layerBank = new MapLayerBank();
     }
 
-    public _toggleDisplayBackground = () => {
+    public _setDataBank(key: string, dataBank: Array<Array<any>>) {
+        if (!this.dataBanks) return;
+        this.dataBanks[key] = dataBank;
+    }
+
+    toggleDisplayBackground = () => {
         let el = this.svg.select("#map_background");
-        (el.style("display") === "none") ? el.style("display", "inline") : el.style("display", "none");
+        (this.Settings.bgVisible) ? el.style("display", "none") : el.style("display", "inline");
+        this.Settings.bgVisible = !this.Settings.bgVisible;
+        this.executeMapmode(this.currentMapmode);
     }
 
+    /**
+     * D3 transformer function that runs over our input GeoJSON/TopoJSON
+     * and rescales each individual coordinate.
+     * This is useful for flipping the axes, or just reducing the resulting SVG
+     * without relying on transforms.
+     * @param scaleFactor
+     */
     scale = (scaleFactor: number) => {
         return d3.geoTransform({
             point: function (x, y) {
@@ -76,18 +72,51 @@ export class Map {
             }
         });
     }
+    /**
+     * This took way longer than it had any right to...
+     *
+     * The map is rendered from x=0 y=0, left-to-right.
+     * Panning actually happens by literally moving the map.
+     * To see further "to the right", the map has to move to the left,
+     * hence when it comes to transformations all distances we're going to be dealing with
+     * will be negative.
+     *
+     * Current location of the "camera" is defined by the position of the upper-left corner of the window.
+     * Hence, the boundaries to the 'left' and 'up' will always be 0.
+     * To get the boundaries of the "right" and "down" we get the size of the map, and remove the sizes of
+     * the current map window, to simulate the distance from bottom-right corner to top-left.
+     */
+    zoomHandler = d3.zoom()
+        .scaleExtent([-0, 50]).on("zoom", r => {
+            let mapWidth = -this.mapWidth;
+            let mapHeight = this.mapHeight;
+            let clientWidth = (this.svgRef.current?.clientWidth ?? 0);
+            let clientHeight = (this.svgRef.current?.clientHeight ?? 0)
+            const mins = {
+                lX: 0,
+                lY: 0,
+                rX: (mapWidth * r.transform.k) + clientWidth - 200,
+                rY: (mapHeight * r.transform.k) + clientHeight - 200,
+            }
+            if (r.transform.x > mins.lX) this.svg.node().__zoom.x = mins.lX;
+            if (r.transform.y > mins.lY) this.svg.node().__zoom.y = mins.lY;
+            if (r.transform.x < mins.rX) this.svg.node().__zoom.x = mins.rX;
+            if (r.transform.y < mins.rY) this.svg.node().__zoom.y = mins.rY;
+            this.svg.select("#main_map").attr("transform", r.transform);
+        })
 
-    get toggleDisplayBackground(): () => void {
-        return this._toggleDisplayBackground;
-    }
 
     /**
      * Runs the cleanup & initial set-up for the map.
+     * layer1/layer2/
      * @param provincesShapes
      */
     initializeSvg = (provincesShapes: GeoJSON.FeatureCollection) => {
-        this.svg.select("g").selectAll("*").remove();
-        this.svg.select("#main_map")
+        this.svg.select("layer1").selectAll("*").remove();
+        this.svg.select("layer2").selectAll("*").remove();
+        this.svg.select("layer3").selectAll("*").remove();
+
+        this.svg.select("#layer0")
             .append("image")
             .attr("id", "map_background")
             .attr("href", "/world_map_vanilla.webp")
@@ -100,18 +129,122 @@ export class Map {
         this.svg.style("height", "100vh");
 
         this.path = d3.geoPath().projection(this.scale(1));
-        this.topoJson = topojson_server.topology({provincesShapes});
+        //Our base input is a geoJson FeatureCollection. This converts it into TopoJson.
+        //This could, in theory, be processed backend-side, but it doesn't seem very bandwidth efficient.
+        this.topoJson = topojson_server.topology({provincesShapes}) as Topology;
         this.geoJson = topojson.feature(this.topoJson, this.topoJson.objects.provincesShapes) as GeoJSON.FeatureCollection;
-
+        this.shapes = provincesShapes;
         // Calculates map's size based on the input shapes, and sets the default camera position.
         this.bounds = this.path.bounds(this.geoJson);
         this.mapHeight = -this.bounds[1][1];
         this.mapWidth = this.bounds[1][0];
-        this.initialX = -this.mapWidth / 2 + (this.svgRef.current?.clientWidth ?? 0) / 2;
-        this.initialY = this.mapHeight / 2 + (this.svgRef.current?.clientHeight ?? 0) / 2;
 
-        this.svg.select("#main_map").attr("transform", `translate(${this.initialX},${this.initialY})`);
-        this.svg.node().__zoom.x = this.initialX;
-        this.svg.node().__zoom.y = this.initialY;
+        //See below for explanation
+        this.drawFirstLayer(provincesShapes);
+        this.drawSecondLayer()
+    }
+
+
+    drawFirstLayer = (provincesShapes: GeoJSON.FeatureCollection) => {
+        let pathConverter = this.path as d3.GeoPath;
+        for (let layer of provincesShapes.features) {
+            let centroid = this.path?.centroid(layer) as [number,number];
+            this.svg.select("#layer1").append("path")
+                .attr("d", pathConverter(layer))
+                .attr("id", layer.properties?.id)
+                .on("click",(e:any)=>{console.log(e)})
+                .style("fill", "none");
+            let layerObj = new MapLayer({
+                id: layer.properties?.id,
+                type: "first",
+                dataBanks: this.dataBanks,
+                centroid:centroid,
+            });
+            this.layerBank.first().push(layerObj);
+        }
+       // this.styleOverrides.push(new CSSStyleDeclaration());
+    }
+    drawSecondLayer = () => {
+        let pathConverter = this.path as d3.GeoPath;
+        let topoJson = this.topoJson as Topology;
+        if (!this.dataBanks?.saveData) return;
+        let saveData = this.dataBanks.saveData;
+
+        let tagNames = Object.keys(saveData);
+        for (const tagName of tagNames) {
+            // @ts-ignore
+            if (!saveData[tagName]['hex']) continue;
+            // @ts-ignore
+            if (typeof saveData[tagName]['total_development'] == "undefined") continue;
+
+            this.svg.select("#layer2").append("path")
+                // @ts-ignore
+                .datum(topojson.merge(topoJson, topoJson.objects.provincesShapes?.geometries.filter((d: any) => {
+                    let layer = this.layerBank.get(1, d.properties.id);
+                    return layer.data.owner === tagName;
+                })))
+                .attr("class", "l2")
+                .style("fill", "none")
+                .style("stroke-width", "2px")
+                .style("stroke", "#000")
+                .style("pointer-events","none")
+                .attr("id", tagName)
+                .attr("d", pathConverter);
+            let layerObj = new MapLayer({
+                id: tagName,
+                type: "second",
+                dataBanks: this.dataBanks
+            });
+            this.layerBank.second().push(layerObj);
+        }
+        //this.styleOverrides.push(new CSSStyleDeclaration());
+    }
+    toggleLayerBorderVisibility = (level: number) => {
+        this.Settings.cBordersVisible = !this.Settings.cBordersVisible;
+        if (!this.svg.select(`#layer${level}`).style("--strokeOpacity")) {
+            this.svg.select(`#layer${level}`).style("--strokeOpacity","0")
+        } else {
+            this.svg.select(`#layer${level}`).style("--strokeOpacity","");
+        }
+        this.executeMapmode(this.currentMapmode);
+    }
+    toggleHeatmapPreference = (value:boolean) => {
+        console.log("Here!");
+        this.Settings.preferHeatmaps = value;
+        this.executeMapmode(this.currentMapmode);
+        console.log(this.currentMapmode,this.Settings);
+    }
+
+    executeMapmode = (mapmodeName: string) => {
+        //if(mapmodeName === this.currentMapmode) return;
+        let chosenMapmode: TMapmode = mapmodes[mapmodeName] as TMapmode;
+        this.svg.select("#layer1_sub").selectAll("*").remove();
+
+
+        for (let layer of this.layerBank.first()) {
+            if (chosenMapmode.firstLayerStyleGenerator) {
+                chosenMapmode.firstLayerStyleGenerator({
+                    layer: layer,
+                    svg:this.svg,
+                    dataBanks: this.dataBanks,
+                    settings: this.Settings,
+                    styleOverrides: this.styleOverrides,
+                });
+            }
+        }
+        for (let layer of this.layerBank.second()) {
+            if (chosenMapmode.secondLayerStyleGenerator) {
+                chosenMapmode.secondLayerStyleGenerator({
+                    layer: layer,
+                    svg:this.svg,
+                    dataBanks: this.dataBanks,
+                    settings: this.Settings,
+                    styleOverrides: this.styleOverrides,
+                });
+            }
+        }
+        console.log(this.layerBank.get(2, "SWE"));
+
+        this.currentMapmode = mapmodeName;
     }
 }
