@@ -33,22 +33,22 @@ const MapDemo: React.FC = () => {
         const saveData: any = await fetchJson(`https://skanderbeg.pm/doser.php?mapdata=true&file=${saveId}`, true, "Save data");
         const languageData: any = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=language.data`, true, "Localization files");
         let provincesShapes: GeoJSON.FeatureCollection = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=provinces.js`, true, "Province shapes");
-        let regionColors:any= await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=region_colors.data`, true, "Region colors");
+        let regionColors: any = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=region_colors.data`, true, "Region colors");
 
         console.log(saveData['tradenodes']);
-        if(!saveData['tradenodes']) dispatch(throwError("Savefile parsed with old version of the parser. Use a more recent one!"))
+        if (!saveData['tradenodes']) dispatch(throwError("Savefile parsed with old version of the parser. Use a more recent one!"))
 
-        Object.entries(saveData['tradenodes']).forEach((v:any,k:number)=>{
+        Object.entries(saveData['tradenodes']).forEach((v: any, k: number) => {
             let name = v[0];
             let data = v[1];
             console.log(data);
             saveData['tradenodes'][name]['id'] = k;
-            data.members.forEach((k:any)=>{
+            data.members.forEach((k: any) => {
                 saveData[k]['tradenode'] = name;
             })
             saveData[data['location']]['trade_node_host'] = name;
-            if(data.incoming){
-                Object.entries(data.incoming).forEach((incoming:any)=>{
+            if (data.incoming) {
+                Object.entries(data.incoming).forEach((incoming: any) => {
                     saveData['tradenodes'][incoming[0]]['outgoing_connections'][name].value_total = incoming[1].value_total;
                     saveData['tradenodes'][incoming[0]]['outgoing_connections'][name].added = incoming[1].added;
                 });
@@ -56,8 +56,8 @@ const MapDemo: React.FC = () => {
         });
 
         M._setDataBank("saveData", saveData);
-        M._setDataBank("regionColors",regionColors);
-       // console.log(saveData);
+        M._setDataBank("regionColors", regionColors);
+        // console.log(saveData);
 
 
         dispatch(setStatus("Initializing the map & basic shapes..."));
@@ -228,8 +228,9 @@ const MapDemo: React.FC = () => {
                                 <Stack
                                     justifyContent={"space-between"}
                                     direction={"row"}>
-                                    <Button colorScheme='teal' value={"development"} onClick={toggleMapmode}>D</Button>
-                                    <Button colorScheme='teal' value={"casualties"} onClick={toggleMapmode}>C</Button>
+                                    <Button colorScheme='teal' value={"development"} onClick={toggleMapmode}>Dev</Button>
+                                    <Button colorScheme='teal' value={"deving"} onClick={toggleMapmode}>Deving</Button>
+                                    <Button colorScheme='teal' value={"casualties"} onClick={toggleMapmode}>Cas</Button>
                                 </Stack>
                             </GridItem>
                             <GridItem>Funi mapmodes:</GridItem>
@@ -245,7 +246,8 @@ const MapDemo: React.FC = () => {
                                 <Stack
                                     justifyContent={"space-between"}
                                     direction={"row"}>
-                                    <Button colorScheme='teal' value={"trade"} onClick={downloadAsPng}>Download as .png</Button>
+                                    <Button colorScheme='teal' value={"trade"} onClick={downloadAsPng}>Download as
+                                        .png</Button>
                                 </Stack>
                             </GridItem>
                         </Grid>
