@@ -6,14 +6,12 @@ import * as topojson_server from "topojson-server";
 import {GeoJSON} from "geojson";
 import * as topojson from "topojson-client";
 import {MapLayer} from "@/utils/map/mapLayer";
-import mapmodes, {cleanLayer} from "@/utils/map/mapmodes";
+import mapmodes from "@/utils/map/mapmodes";
 import {TMapmode} from "@/utils/types/map";
 import {Topology} from "topojson-specification";
 import {MapLayerBank} from "@/utils/map/mapLayerBank";
 
 export class Map {
-
-
     public geoJson?: GeoJSON.FeatureCollection;
     public topoJson?: topojson_spec.Topology;
     public path?: d3.GeoPath<GeoPermissibleObjects>;
@@ -163,6 +161,7 @@ export class Map {
             this.svg.select("#layer1").append("path")
                 .attr("d", pathConverter(layer))
                 .attr("id", layer.properties?.id)
+                .attr("shape-rendering","optimizeSpeed")
                 .on("click", (e: any) => {
                     console.log(e)
                 })
@@ -228,10 +227,6 @@ export class Map {
         this.executeMapmode(this.currentMapmode);
         console.log(this.currentMapmode, this.Settings);
     }
-
-    downloadAsPng() {
-        alert("NO CAN DOO");
-    };
 
     executeMapmode = (mapmodeName: string) => {
         //if(mapmodeName === this.currentMapmode) return;

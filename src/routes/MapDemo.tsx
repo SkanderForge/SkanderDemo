@@ -41,7 +41,6 @@ const MapDemo: React.FC = () => {
         Object.entries(saveData['tradenodes']).forEach((v: any, k: number) => {
             let name = v[0];
             let data = v[1];
-            console.log(data);
             saveData['tradenodes'][name]['id'] = k;
             data.members.forEach((k: any) => {
                 saveData[k]['tradenode'] = name;
@@ -152,9 +151,9 @@ const MapDemo: React.FC = () => {
     const toggleMapmode = (event: any) => {
         MR.current?.executeMapmode(event.target.value);
     };
-    const downloadAsPng = () => {
-        MR.current?.downloadAsPng();
-    };
+    // const downloadAsPng = () => {
+    //     MR.current?.downloadAsPng();
+    // };
     const toggleLayerBorders = (event: ChangeEvent<HTMLInputElement>) => {
         console.log(event);
         console.log(MR.current);
@@ -241,15 +240,16 @@ const MapDemo: React.FC = () => {
                                     <Button colorScheme='teal' value={"trade"} onClick={toggleMapmode}>Trade</Button>
                                 </Stack>
                             </GridItem>
-                            <GridItem>Funi buttons:</GridItem>
-                            <GridItem>
-                                <Stack
-                                    justifyContent={"space-between"}
-                                    direction={"row"}>
-                                    <Button colorScheme='teal' value={"trade"} onClick={downloadAsPng}>Download as
-                                        .png</Button>
-                                </Stack>
-                            </GridItem>
+                            {/*<GridItem>Funi buttons:</GridItem>*/}
+
+                            {/*<GridItem>*/}
+                            {/*    <Stack*/}
+                            {/*        justifyContent={"space-between"}*/}
+                            {/*        direction={"row"}>*/}
+                            {/*        <Button colorScheme='teal' value={"trade"} onClick={downloadAsPng}>Download as*/}
+                            {/*            .png</Button>*/}
+                            {/*    </Stack>*/}
+                            {/*</GridItem>*/}
                         </Grid>
                     </Box>
                 </Box>

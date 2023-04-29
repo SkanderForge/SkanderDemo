@@ -1,10 +1,6 @@
 import {TMapmode, TMapmodeArgs, TProvinceTypes} from "@/utils/types/map";
 import {defaultLayerStyle, defaultSecondLayerStyle, setStyle} from "@/utils/map/mapmodes";
 import * as d3 from "d3";
-import {MapLayerBank} from "@/utils/map/mapLayerBank";
-import {stringToHex} from "@/utils/stringToHex";
-import {Config} from "@/config";
-
 
 const trade: TMapmode = {
     key: "trade",
@@ -13,14 +9,12 @@ const trade: TMapmode = {
 
         let color = "#fff";
         let node = e.dataBanks.saveData[e.layer.id]['tradenode'] ?? false;
-        if (!node || e.layer.provinceType === TProvinceTypes.SEAZONE){
+        if (!node || e.layer.provinceType === TProvinceTypes.SEAZONE) {
             style.fill = "#fff";
-            setStyle(e.layer,style);
+            setStyle(e.layer, style);
             style.fillOpacity = "0.3";
         }
-
-
-        if(node && e.layer.provinceType !== TProvinceTypes.SEAZONE) {
+        if (node && e.layer.provinceType !== TProvinceTypes.SEAZONE) {
             let nodeData = e.dataBanks['saveData']['tradenodes'][node];
             let colorData = nodeData['color'] ?? e.dataBanks['regionColors'][nodeData.id + 1];
             if (!colorData) {
@@ -56,8 +50,6 @@ const trade: TMapmode = {
                         //Add the finishing province(trade node's host) to the set.
                         let finishingPoint = e.caller.layerBank.get(1, e.dataBanks['saveData']['tradenodes'][v[0]]['location']);
                         let final = [finishingPoint.centroid[0], finishingPoint.centroid[1]];
-
-
                         //We need to detect if the trade flow line wraps around the map. If it does, we artificially add a final new point
                         //at the end of the map, which will serve as a starting point for a new line on the other side of the map.
                         let x, y, lineIndex: number = 0;
@@ -87,32 +79,12 @@ const trade: TMapmode = {
                         lines[lines.length - 1].push(final);
 
                         let lineKey = `${tradeNodeData.name}-${v[0]}`;
-
-
                         let baselineWidth = 2.5;
                         let combinedWidth = ((parseFloat(v[1].value_total + v[1].added)) / 2);
                         let valueWidth = v[1].value_total / 3;
-
-
-                        // e.svg.select("#markers_layer0").append("marker")
-                        //     .attr("id", `${lineKey}-arrow`)
-                        //     .attr("orient", "auto")
-                        //     .attr("viewBox","0 0 100 100")
-                        //     .attr("refX",36)
-                        //     .attr("refY",32)
-                        //     .attr("markerWidth",combinedWidth*2)
-                        //     .attr("markerHeight",combinedWidth*2)
-                        //     .attr("markerUnits","userSpaceOnUse")
-                        //     .append("image")
-                        //     .attr("width",72)
-                        //     .attr("height",64)
-                        //     .attr("href", "/trade_route_arrow.png");
-
-
                         lines.forEach((l: any) => {
                             // @ts-ignore
                             const pathData = curve(l);
-
                             //Baseline that will show up even if there's no ongoing trade flow.
                             e.svg.select("#layer2_sub").append('path')
                                 .attr('d', pathData)
@@ -121,7 +93,6 @@ const trade: TMapmode = {
                                 .attr('stroke', '#c28a24')
                                 .attr("stroke-linecap", "round")
                                 .attr("id", `${lineKey}-baseline`)
-
                             //Line combining the entire size of the flow. Only the blue sides(the added value) are meant to show up
                             e.svg.select("#layer2_sub").append('path')
                                 .attr('d', pathData)
@@ -146,7 +117,6 @@ const trade: TMapmode = {
                     })
                 }
             }
-
             setStyle(e.layer, style);
         } else {
             setStyle(e.layer, style);
