@@ -1,4 +1,6 @@
 import {TProvinceTypes} from "@/utils/types/types";
+import {store} from "@/utils/store/store";
+import {throwError} from "@/utils/store/loaderSlice";
 
 interface layerOptions {
     id: string | number,
@@ -38,11 +40,17 @@ export class MapLayer {
         this.data = options.dataBanks['saveData'][this.id];
         this.cache = [];
 
+        if(!this.data) store.dispatch(throwError(`${this.id} doesn't exist on saveData!`))
 
-        if (this.data.owner === "SEAZONE") this.provinceType = TProvinceTypes.SEAZONE;
-        if (!this.data.owner) this.provinceType = TProvinceTypes.WASTELAND;
-        if (this.data["base_tax"] && !this.data.owner) this.provinceType = TProvinceTypes.UNCOLONIZED;
-        if (this.data.owner && this.data.owner !== "SEAZONE") this.provinceType = TProvinceTypes.REGULAR;
-
+        this.provinceType = this.getProvinceType();
+        }
+    getProvinceType(){
+        if (this.data.owner === "SEAZONE") return TProvinceTypes.SEAZONE;
+        if (this.data.owner === "LACKEN") return TProvinceTypes.LAKEZONE;
+        if (!this.data.owner) return TProvinceTypes.WASTELAND;
+        if (this.data["base_tax"] && !this.data.owner) return TProvinceTypes.UNCOLONIZED;
+        if (this.data.owner && this.data.owner !== "SEAZONE") return TProvinceTypes.REGULAR;
+        return TProvinceTypes.WASTELAND;
     }
+
 }

@@ -6,7 +6,7 @@ import React from "react";
 
 export const routes = [
     {
-        path: "/map",
+        path: "/save/:id/map",
         element: <MapDemo/>,
         name: "Map demo"
     },

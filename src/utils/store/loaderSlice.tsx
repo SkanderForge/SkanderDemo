@@ -37,8 +37,19 @@ const loaderSlice = createSlice({
         setStatus: (currentState, action: PayloadAction<string>) => {
             let statusHolder = document.getElementById("loader_text") as HTMLElement;
             statusHolder.innerText = action.payload;
+        },
+        throwError: (currentState, action: PayloadAction<string>) => {
+            let statusHolder = document.getElementById("loader_text") as HTMLElement;
+            statusHolder.innerHTML = `Oopsie doopsie! We have an error.`
+            statusHolder.innerHTML += `<br><span style="color:rgb(224,79,255)">${action.payload}</span>`;
+            statusHolder.innerHTML += `<br>You will be redirected shortly...`;
+            statusHolder.innerHTML += `<br>Does it persists? Contact us on our Discord!`;
+            setTimeout(()=>{
+                window.location.href = "/";
+            },5000)
+            throw new Error(action.payload);
         }
     },
 });
-export const {showLoader, hideLoader, setStatus} = loaderSlice.actions;
+export const {showLoader, hideLoader, setStatus,throwError} = loaderSlice.actions;
 export default loaderSlice.reducer;

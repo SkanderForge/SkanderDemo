@@ -18,16 +18,17 @@ const Loader: React.FC<LoaderProps> = () => {
                 width: "100%",
                 minHeight: "100vh",
                 color: "white",
-                fontSize: "50px"
+                fontSize: "1.7em"
             }}>
                 <Box style={{
                     margin: "auto",
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
+                    textAlign: "center",
                     flexDirection: "column"
                 }}>
-                    <img src={"images/loader.gif"} alt={"Watch more anime"} style={{width: "15%"}}/>
+                    <img src={"/images/loader.gif"} alt={"Watch more anime"} style={{width: "15%"}}/>
                     <Box id={"loader_text"}>
                     </Box>
                 </Box>

@@ -1,0 +1,4 @@
+scripts/** linguist-vendored
+public/** linguist-vendored
+misc/** linguist-vendored
+config/** linguist-vendored

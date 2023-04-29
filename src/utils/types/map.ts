@@ -25,6 +25,7 @@ export type TLayerStyle = Partial<CSSProperties>;
 export interface TMapmodeArgs{
     layer:any,
     dataBanks:any,
+    caller:any,
     svg:any,
     settings:any,
     styleOverrides:any,

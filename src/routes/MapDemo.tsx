@@ -5,8 +5,9 @@ import {GeoJSON, GeoJsonProperties, Geometry} from "geojson";
 import {fetchJson} from "@/utils/fetchJson";
 import {Map} from "@/utils/map/map";
 import {useAppDispatch} from "@/utils/store/customHooks";
-import {hideLoader, setStatus, showLoader} from "@/utils/store/loaderSlice";
+import {hideLoader, setStatus, showLoader, throwError} from "@/utils/store/loaderSlice";
 import {Box, Button, Grid, GridItem, Stack, Switch, useColorModeValue} from "@chakra-ui/react";
+import {useParams} from "react-router";
 
 const MapDemo: React.FC = () => {
 
@@ -16,8 +17,8 @@ const MapDemo: React.FC = () => {
 
     const svgRef: React.RefObject<SVGSVGElement> = useRef<SVGSVGElement>(null);
 
-
-    let saveId: string = "071716"//= "04b3db"; //= "8a33cd";
+    const params = useParams() as any;
+    let saveId: string = params.id//= "04b3db"; //= "8a33cd";
 
     const MR = useRef<Map>();
 
@@ -26,22 +27,49 @@ const MapDemo: React.FC = () => {
         const svg = d3.select(svgRef.current);
         const M = new Map(svgRef);
         MR.current = M;
-        dispatch(setStatus("Loading provinces color data..."));
         const provincesColors: {
             [key: string]: { id: string }
-        } = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=provinces.data`);
-        dispatch(setStatus("Loading save data..."));
-        const saveData: any = await fetchJson(`https://skanderbeg.pm/doser.php?mapdata=true&file=${saveId}`);
-        M._setDataBank("saveData", saveData);
-        dispatch(setStatus("Loading language data..."));
-        const languageData: any = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=language.data`);
-        const provincesShapes: GeoJSON.FeatureCollection = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=provinces.js`);
-        dispatch(setStatus("Initializing the map & basic shapes..."));
+        } = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=provinces.data`, true, "Color map");
+        const saveData: any = await fetchJson(`https://skanderbeg.pm/doser.php?mapdata=true&file=${saveId}`, true, "Save data");
+        const languageData: any = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=language.data`, true, "Localization files");
+        let provincesShapes: GeoJSON.FeatureCollection = await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=provinces.js`, true, "Province shapes");
+        let regionColors:any= await fetchJson(`https://skanderbeg.pm/api.php?scope=getGameFile&id=${saveId}&key=region_colors.data`, true, "Region colors");
 
-        provincesShapes.features.map(function (element: GeoJSON.Feature<Geometry, GeoJsonProperties>) {
+        console.log(saveData['tradenodes']);
+        if(!saveData['tradenodes']) dispatch(throwError("Savefile parsed with old version of the parser. Use a more recent one!"))
+
+        Object.entries(saveData['tradenodes']).forEach((v:any,k:number)=>{
+            let name = v[0];
+            let data = v[1];
+            console.log(data);
+            saveData['tradenodes'][name]['id'] = k;
+            data.members.forEach((k:any)=>{
+                saveData[k]['tradenode'] = name;
+            })
+            saveData[data['location']]['trade_node_host'] = name;
+            if(data.incoming){
+                Object.entries(data.incoming).forEach((incoming:any)=>{
+                    saveData['tradenodes'][incoming[0]]['outgoing_connections'][name].value_total = incoming[1].value_total;
+                    saveData['tradenodes'][incoming[0]]['outgoing_connections'][name].added = incoming[1].added;
+                });
+            }
+        });
+
+        M._setDataBank("saveData", saveData);
+        M._setDataBank("regionColors",regionColors);
+       // console.log(saveData);
+
+
+        dispatch(setStatus("Initializing the map & basic shapes..."));
+        provincesShapes.features = provincesShapes.features.filter((element: GeoJSON.Feature<Geometry, GeoJsonProperties>): boolean => {
+            return typeof provincesColors[element.properties?.hex] !== "undefined";
+        }).map(function (element: GeoJSON.Feature<Geometry, GeoJsonProperties>) {
             if (element.properties) element.properties.id = parseInt(provincesColors[element.properties?.hex].id);
             return element;
         });
+
+
+        console.log(provincesShapes);
         M.initializeSvg(provincesShapes);
         svg.select("g").append("g").attr("id", "province-labels");
         dispatch(setStatus("Rendering provinces..."));
@@ -124,14 +152,16 @@ const MapDemo: React.FC = () => {
     const toggleMapmode = (event: any) => {
         MR.current?.executeMapmode(event.target.value);
     };
-
+    const downloadAsPng = () => {
+        MR.current?.downloadAsPng();
+    };
     const toggleLayerBorders = (event: ChangeEvent<HTMLInputElement>) => {
         console.log(event);
         console.log(MR.current);
         MR.current?.toggleLayerBorderVisibility(Number(event.target.value));
     };
-    const toggleHeatmapPreference = (event: any) => {
-        MR.current?.toggleHeatmapPreference(event.target.checked)
+    const toggleMapmodeOverlayPreferences = (event: any) => {
+        MR.current?.toggleMapmodeOverlayPreferences(event.target.checked)
     };
 
     useEffect(() => {
@@ -151,12 +181,17 @@ const MapDemo: React.FC = () => {
             <>
                 <Box id={"skanderMap"} style={{position: "relative"}}>
                     <svg style={{marginTop: "0%"}} ref={svgRef}>
+                        <defs>
+                            <g id={"markers_layer0"}></g>
+                        </defs>
                         <g id={"main_map"}>
                             <g id={"layer0"}></g>
                             <g id={"layer1"}></g>
                             <g id={"layer1_sub"}></g>
                             <g id={"layer2"}></g>
+                            <g id={"layer2_sub"}></g>
                             <g id={"layer3"}></g>
+                            <g id={"layer3_sub"}></g>
                         </g>
                     </svg>
                     <Box id={"uiTopLeft"} backgroundColor={useColorModeValue("light.800", "dark.800")}
@@ -176,18 +211,41 @@ const MapDemo: React.FC = () => {
                                 <GridItem pb={6}><Switch defaultChecked={true} value={2} onChange={toggleLayerBorders}/></GridItem>
                             </Stack>
                             <Stack justifyContent={"space-between"} direction={"row"}>
-                                <GridItem><Box>Prefer heatmaps</Box></GridItem>
+                                <GridItem><Box>Mapmode overlays</Box></GridItem>
                                 <GridItem pb={6}><Switch defaultChecked={true} value={2}
-                                                         onChange={toggleHeatmapPreference}/></GridItem>
+                                                         onChange={toggleMapmodeOverlayPreferences}/></GridItem>
                             </Stack>
-                            <GridItem>Mapmodes:</GridItem>
+                            <GridItem>Standard mapmode:</GridItem>
                             <GridItem>
                                 <Stack
                                     justifyContent={"space-between"}
                                     direction={"row"}>
-                                    <Button value={"political"} onClick={toggleMapmode}>P</Button>
-                                    <Button value={"development"} onClick={toggleMapmode}>D</Button>
-                                    <Button value={"casualties"} onClick={toggleMapmode}>C</Button>
+                                    <Button colorScheme='teal' value={"political"} onClick={toggleMapmode}>P</Button>
+                                </Stack>
+                            </GridItem>
+                            <GridItem>Heatmap mapmodes:</GridItem>
+                            <GridItem>
+                                <Stack
+                                    justifyContent={"space-between"}
+                                    direction={"row"}>
+                                    <Button colorScheme='teal' value={"development"} onClick={toggleMapmode}>D</Button>
+                                    <Button colorScheme='teal' value={"casualties"} onClick={toggleMapmode}>C</Button>
+                                </Stack>
+                            </GridItem>
+                            <GridItem>Funi mapmodes:</GridItem>
+                            <GridItem>
+                                <Stack
+                                    justifyContent={"space-between"}
+                                    direction={"row"}>
+                                    <Button colorScheme='teal' value={"trade"} onClick={toggleMapmode}>Trade</Button>
+                                </Stack>
+                            </GridItem>
+                            <GridItem>Funi buttons:</GridItem>
+                            <GridItem>
+                                <Stack
+                                    justifyContent={"space-between"}
+                                    direction={"row"}>
+                                    <Button colorScheme='teal' value={"trade"} onClick={downloadAsPng}>Download as .png</Button>
                                 </Stack>
                             </GridItem>
                         </Grid>

@@ -32,7 +32,8 @@ export class Map {
     public Settings = {
         bgVisible: true,
         cBordersVisible: true,
-        preferHeatmaps:true,
+        pBordersVisible: true,
+        enableOverlay: true,
     }
 
     private styleOverrides: CSSStyleDeclaration[] = [];
@@ -132,6 +133,7 @@ export class Map {
         //Our base input is a geoJson FeatureCollection. This converts it into TopoJson.
         //This could, in theory, be processed backend-side, but it doesn't seem very bandwidth efficient.
         this.topoJson = topojson_server.topology({provincesShapes}) as Topology;
+
         this.geoJson = topojson.feature(this.topoJson, this.topoJson.objects.provincesShapes) as GeoJSON.FeatureCollection;
         this.shapes = provincesShapes;
         // Calculates map's size based on the input shapes, and sets the default camera position.
@@ -141,6 +143,15 @@ export class Map {
 
         //See below for explanation
         this.drawFirstLayer(provincesShapes);
+
+
+        // @ts-ignore
+        //let foo = topojson.merge(this.topoJson, this.topoJson.objects.provincesShapes?.geometries.filter((d: any) => {
+        //let layer = this.layerBank.get(1, d.properties.id);
+        //return layer.data.owner === "RUS";
+        //}));
+        //console.log(foo);
+
         this.drawSecondLayer()
     }
 
@@ -148,21 +159,23 @@ export class Map {
     drawFirstLayer = (provincesShapes: GeoJSON.FeatureCollection) => {
         let pathConverter = this.path as d3.GeoPath;
         for (let layer of provincesShapes.features) {
-            let centroid = this.path?.centroid(layer) as [number,number];
+            let centroid = this.path?.centroid(layer) as [number, number];
             this.svg.select("#layer1").append("path")
                 .attr("d", pathConverter(layer))
                 .attr("id", layer.properties?.id)
-                .on("click",(e:any)=>{console.log(e)})
+                .on("click", (e: any) => {
+                    console.log(e)
+                })
                 .style("fill", "none");
             let layerObj = new MapLayer({
                 id: layer.properties?.id,
                 type: "first",
                 dataBanks: this.dataBanks,
-                centroid:centroid,
+                centroid: centroid,
             });
             this.layerBank.first().push(layerObj);
         }
-       // this.styleOverrides.push(new CSSStyleDeclaration());
+        // this.styleOverrides.push(new CSSStyleDeclaration());
     }
     drawSecondLayer = () => {
         let pathConverter = this.path as d3.GeoPath;
@@ -187,7 +200,7 @@ export class Map {
                 .style("fill", "none")
                 .style("stroke-width", "2px")
                 .style("stroke", "#000")
-                .style("pointer-events","none")
+                .style("pointer-events", "none")
                 .attr("id", tagName)
                 .attr("d", pathConverter);
             let layerObj = new MapLayer({
@@ -200,32 +213,38 @@ export class Map {
         //this.styleOverrides.push(new CSSStyleDeclaration());
     }
     toggleLayerBorderVisibility = (level: number) => {
-        this.Settings.cBordersVisible = !this.Settings.cBordersVisible;
+        if (level === 2) this.Settings.cBordersVisible = !this.Settings.cBordersVisible;
+        if (level === 1) this.Settings.pBordersVisible = !this.Settings.pBordersVisible;
         if (!this.svg.select(`#layer${level}`).style("--strokeOpacity")) {
-            this.svg.select(`#layer${level}`).style("--strokeOpacity","0")
+            this.svg.select(`#layer${level}`).style("--strokeOpacity", "0")
         } else {
-            this.svg.select(`#layer${level}`).style("--strokeOpacity","");
+            this.svg.select(`#layer${level}`).style("--strokeOpacity", "");
         }
         this.executeMapmode(this.currentMapmode);
     }
-    toggleHeatmapPreference = (value:boolean) => {
+    toggleMapmodeOverlayPreferences = (value: boolean) => {
         console.log("Here!");
-        this.Settings.preferHeatmaps = value;
+        this.Settings.enableOverlay = value;
         this.executeMapmode(this.currentMapmode);
-        console.log(this.currentMapmode,this.Settings);
+        console.log(this.currentMapmode, this.Settings);
     }
+
+    downloadAsPng() {
+        alert("NO CAN DOO");
+    };
 
     executeMapmode = (mapmodeName: string) => {
         //if(mapmodeName === this.currentMapmode) return;
         let chosenMapmode: TMapmode = mapmodes[mapmodeName] as TMapmode;
         this.svg.select("#layer1_sub").selectAll("*").remove();
-
-
+        this.svg.select("#layer2_sub").selectAll("*").remove();
+        this.svg.select("#layer3_sub").selectAll("*").remove();
         for (let layer of this.layerBank.first()) {
             if (chosenMapmode.firstLayerStyleGenerator) {
                 chosenMapmode.firstLayerStyleGenerator({
                     layer: layer,
-                    svg:this.svg,
+                    caller: this,
+                    svg: this.svg,
                     dataBanks: this.dataBanks,
                     settings: this.Settings,
                     styleOverrides: this.styleOverrides,
@@ -236,14 +255,14 @@ export class Map {
             if (chosenMapmode.secondLayerStyleGenerator) {
                 chosenMapmode.secondLayerStyleGenerator({
                     layer: layer,
-                    svg:this.svg,
+                    caller: this,
+                    svg: this.svg,
                     dataBanks: this.dataBanks,
                     settings: this.Settings,
                     styleOverrides: this.styleOverrides,
                 });
             }
         }
-        console.log(this.layerBank.get(2, "SWE"));
 
         this.currentMapmode = mapmodeName;
     }
